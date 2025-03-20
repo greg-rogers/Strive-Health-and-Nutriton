@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "739876449170",
+    "project_id": "cs3fyp-a0057",
+    "storage_bucket": "cs3fyp-a0057.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739876449170:android:14ba0b957f32ff97ffaf4b",
+        "android_client_info": {
+          "package_name": "com.gregrogers.fypfitnessapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwke1NEpDsGGMy-Pjwpcj8CfT2sa1LWXs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
