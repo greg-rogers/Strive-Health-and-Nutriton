@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // This should be generated after running flutterfire configure
+import 'firebase_options.dart';
+import 'screens/login.dart';
+import 'screens/signup.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,18 +17,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Firebase Test',
-      home: FirebaseTestScreen(),
+      title: 'Fitness App',
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoginScreen(),
+        '/signup': (context) => SignUpScreen(),
+      },
     );
   }
 }
 
-class FirebaseTestScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Firebase Test")),
-      body: Center(child: Text("🔥 Firebase is working!")),
-    );
-  }
-}
