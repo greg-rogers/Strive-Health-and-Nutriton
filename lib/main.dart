@@ -3,6 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login.dart';
 import 'screens/signup.dart';
+import 'screens/home.dart';
+import 'screens/workout.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +16,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -22,6 +27,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => LoginScreen(),
         '/signup': (context) => SignUpScreen(),
+        '/home': (context) => HomeScreen(),
+        '/workout': (context) => WorkoutScreen(),
+        
+
       },
     );
   }
