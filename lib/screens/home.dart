@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'workout.dart';
-
+import 'feed.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +16,7 @@ class HomeScreenState extends State<HomeScreen> {
     Center(child: Text("🏠 Home", style: TextStyle(fontSize: 22))),
     WorkoutScreen(),
     Center(child: Text("🥗 Nutrition", style: TextStyle(fontSize: 22))),
-    Center(child: Text("👥 Feed", style: TextStyle(fontSize: 22))),
+    FeedScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -26,9 +26,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   void _openProfile() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("👤 Profile tapped")),
-    );
+    Navigator.pushNamed(context, '/profile');
   }
 
   void _openNotifications() {
