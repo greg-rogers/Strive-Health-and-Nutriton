@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'sessioneditor.dart';
+
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
@@ -173,15 +175,71 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         : Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SizedBox(width: 16), // for padding from left
+              SizedBox(width: 16), 
               FloatingActionButton.extended(
                 heroTag: "publish",
-                onPressed: () {
-                  // Future implementation: share/publish logic
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Publish day tapped")),
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text("Confirm Publish"),
+                      content: Text("Are you sure you want to publish this day’s workout to your feed?"),
+                      actions: [
+                        TextButton(
+                          child: Text("Cancel"),
+                          onPressed: () => Navigator.of(context).pop(false),
+                        ),
+                        ElevatedButton(
+                          child: Text("Publish"),
+                          onPressed: () => Navigator.of(context).pop(true),
+                        ),
+                      ],
+                    ),
                   );
+
+                  if (confirmed == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Workout published!")),
+                    );
+                    if (confirmed == true) {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) return;
+
+                      final userId = user.uid;
+
+                      // Get sessions for selected day
+                      final sessionsSnap = await FirebaseFirestore.instance
+                          .collection('workouts')
+                          .doc(userId)
+                          .collection('sessions')
+                          .where('date', isEqualTo: DateFormat('yyyy-MM-dd').format(selectedDate))
+                          .get();
+
+                      for (var sessionDoc in sessionsSnap.docs) {
+                        final sessionData = sessionDoc.data();
+
+                        // Fetch exercises for this session
+                        final exercisesSnap = await sessionDoc.reference.collection('exercises').get();
+                        final exercises = exercisesSnap.docs.map((e) => e.data()).toList();
+
+                        // Add to global feed
+                        await FirebaseFirestore.instance.collection('feed').add({
+                          'userId': user.uid,
+                          'sessionName': sessionData['name'],
+                          'duration': sessionData['duration'],
+                          'date': sessionData['date'],
+                          'exercises': exercises,
+                          'publishedAt': FieldValue.serverTimestamp(),
+
+                        });
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Workout published to feed ✅")),
+                      );
+                    }
+                  }
                 },
+
                 icon: Icon(Icons.public),
                 label: Text("Publish Day"),
                 backgroundColor: const Color.fromARGB(158, 44, 222, 5),
@@ -195,189 +253,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ],
           ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-}
-
-class SessionEditorScreen extends StatefulWidget {
-  final DateTime date;
-  final String? sessionId;
-
-  const SessionEditorScreen({super.key, required this.date, this.sessionId});
-
-  @override
-  State<SessionEditorScreen> createState() => _SessionEditorScreenState();
-}
-
-class _SessionEditorScreenState extends State<SessionEditorScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController sessionNameController = TextEditingController();
-  final TextEditingController sessionDurationController = TextEditingController();
-  final TextEditingController exerciseController = TextEditingController();
-  final TextEditingController weightController = TextEditingController();
-  final TextEditingController repsController = TextEditingController();
-
-  List<Map<String, String>> exercises = [];
-  bool isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.sessionId != null) _loadSessionData();
-  }
-
-  Future<void> _loadSessionData() async {
-    setState(() => isLoading = true);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final doc = await FirebaseFirestore.instance
-        .collection('workouts')
-        .doc(user.uid)
-        .collection('sessions')
-        .doc(widget.sessionId)
-        .get();
-
-    final data = doc.data();
-    if (data != null) {
-      sessionNameController.text = data['name'];
-      sessionDurationController.text = data['duration'];
-
-      final exerciseSnap = await FirebaseFirestore.instance
-          .collection('workouts')
-          .doc(user.uid)
-          .collection('sessions')
-          .doc(widget.sessionId)
-          .collection('exercises')
-          .get();
-
-      setState(() {
-        exercises = exerciseSnap.docs.map((e) => {
-            'exercise': e['exercise'].toString(),
-            'weight': e['weight'].toString(),
-            'reps': e['reps'].toString(),
-          }).toList();
-        isLoading = false;
-      });
-    }
-  }
-
-  void _addExercise() {
-    if (exerciseController.text.isNotEmpty &&
-        weightController.text.isNotEmpty &&
-        repsController.text.isNotEmpty) {
-      setState(() {
-        exercises.add({
-          'exercise': exerciseController.text,
-          'weight': weightController.text,
-          'reps': repsController.text,
-        });
-      });
-      exerciseController.clear();
-      weightController.clear();
-      repsController.clear();
-    }
-  }
-
-  Future<void> _saveSession() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final sessionData = {
-      'name': sessionNameController.text,
-      'duration': sessionDurationController.text,
-      'date': DateFormat('yyyy-MM-dd').format(widget.date),
-    };
-
-    DocumentReference sessionRef;
-
-    if (widget.sessionId == null) {
-      sessionRef = await FirebaseFirestore.instance
-          .collection('workouts')
-          .doc(user.uid)
-          .collection('sessions')
-          .add(sessionData);
-    } else {
-      sessionRef = FirebaseFirestore.instance
-          .collection('workouts')
-          .doc(user.uid)
-          .collection('sessions')
-          .doc(widget.sessionId);
-
-      await sessionRef.set(sessionData);
-    }
-
-    final exercisesRef = sessionRef.collection('exercises');
-    final currentExercises = await exercisesRef.get();
-    for (final doc in currentExercises.docs) {
-      await doc.reference.delete();
-    }
-    for (final exercise in exercises) {
-      await exercisesRef.add(exercise);
-    }
-
-    if (mounted) {
-      Navigator.pop(context);
-    }
-
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.sessionId == null ? 'New Session' : 'Edit Session'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.save),
-            onPressed: _saveSession,
-          ),
-        ],
-
-      ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    TextFormField(
-                      controller: sessionNameController,
-                      decoration: InputDecoration(labelText: 'Session Name'),
-                    ),
-                    TextFormField(
-                      controller: sessionDurationController,
-                      decoration: InputDecoration(labelText: 'Duration (e.g. 1 hour)'),
-                    ),
-                    Divider(),
-                    Text("Add Exercise"),
-                    TextFormField(
-                      controller: exerciseController,
-                      decoration: InputDecoration(labelText: 'Exercise'),
-                    ),
-                    TextFormField(
-                      controller: weightController,
-                      decoration: InputDecoration(labelText: 'Weight (kg)'),
-                    ),
-                    TextFormField(
-                      controller: repsController,
-                      decoration: InputDecoration(labelText: 'Reps'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _addExercise,
-                      child: Text("Add Exercise"),
-                    ),
-                    Divider(),
-                    Text("Exercises:"),
-                    ...exercises.map((e) => ListTile(
-                          title: Text("${e['exercise']} - ${e['weight']}kg x ${e['reps']} reps"),
-                        )),
-                  ],
-                ),
-              ),
-            ),
     );
   }
 }
