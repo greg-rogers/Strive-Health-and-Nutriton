@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_testing/main.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-
+import 'login.dart';
+import 'followlist.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -15,8 +17,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  Map<DateTime, int> _activityMap = {};
+class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
+  Map<DateTime, int> _activityMap = {}; 
   bool _isLoading = true;
   Map<String, dynamic> userData = {};
 
@@ -24,6 +26,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _fetchUserProfileAndWorkouts();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (mounted) {
+      routeObserver.subscribe(this, ModalRoute.of(context)!);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    super.didPopNext();
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
   }
 
   Future<void> _fetchUserProfileAndWorkouts() async {
@@ -55,6 +76,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = false;
     });
   }
+
+  Future<void> _openFollowList(String title, List<String> ids, bool allowRemove) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FollowListScreen(
+          userIds: ids,
+          title: title,
+          allowRemove: allowRemove,
+        ),
+      ),
+    );
+    _fetchUserProfileAndWorkouts();
+  }
+
 
   Future<void> _pickAndUploadProfileImage() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -195,6 +231,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text("User not found. Please log in again.")),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text("My Profile")),
       body: _isLoading
@@ -218,14 +260,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text("Username: ${userData['username'] ?? user!.email}"),
+                Text("Username: ${userData['username'] ?? user.email}"),
                 Text("Email: ${user!.email}"),
                 const SizedBox(height: 16),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Followers: ${userData['followers']?.length ?? 0}"),
+                    GestureDetector(
+                      onTap: () {
+                        final followerIds = List<String>.from(userData['followers'] ?? []);
+                         _openFollowList('Followers', followerIds, true);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          "Followers: ${userData['followers']?.length ?? 0}",
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Text("Following: ${userData['following']?.length ?? 0}"),
+                    GestureDetector(
+                      onTap: () {
+                        final followingIds = List<String>.from(userData['following'] ?? []);
+                        _openFollowList('Following', followingIds, true);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          "Following: ${userData['following']?.length ?? 0}",
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -233,6 +308,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 10),
                 _buildHeatMap(),
+                const SizedBox(height: 30),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                      if (!mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => LoginScreen()),
+                      (route) => false,
+                    );
+                    },
+                    icon: Icon(Icons.logout),
+                    label: Text("Log Out"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[900],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
               ],
             ),
     );
