@@ -31,9 +31,10 @@ class MyApp extends StatelessWidget {
         
         '/home': (context) => const MainScaffold(initialIndex: 0),
         '/workout': (context) => const MainScaffold(initialIndex: 1),
-        '/feed': (context) => const MainScaffold(initialIndex: 2),
-        '/profile': (context) => const MainScaffold(initialIndex: 3),
+        '/nutrition': (context) => const MainScaffold(initialIndex: 2),
+        '/feed': (context) => const MainScaffold(initialIndex: 3),
 
+        '/profile' : (context) => const ProfileScreen(),
         '/notifications': (context) => const NotificationsScreen(),
         '/search': (context) => const SearchUsersScreen(),
         '/publicprofile': (context) {

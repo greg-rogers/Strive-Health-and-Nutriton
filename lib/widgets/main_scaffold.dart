@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_testing/screens/nutrition.dart';
 import '/screens/screens.dart';
 
 class MainScaffold extends StatefulWidget {
@@ -21,7 +22,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   final List<Widget> _pages = const [
     HomeScreen(),
     WorkoutScreen(),
-    Center(child: Text("🥗 Nutrition", style: TextStyle(fontSize: 22))),
+    NutritionScreen(),
     FeedScreen(),
   ];
 
