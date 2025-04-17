@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'workout.dart';
-import 'feed.dart';
+import 'profile.dart';
+import 'notifications.dart';
+import '../helpers/navigation_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,29 +13,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _pages = [
-    Center(child: Text("🏠 Home", style: TextStyle(fontSize: 22))),
-    WorkoutScreen(),
-    Center(child: Text("🥗 Nutrition", style: TextStyle(fontSize: 22))),
-    FeedScreen(),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
+ 
   void _openProfile() {
-    Navigator.pushNamed(context, '/profile');
+    navigateWithNavBar(context, const ProfileScreen(), initialIndex: 0);
   }
 
   void _openNotifications() async {
-  await Navigator.pushNamed(context, '/notifications');
-  await Future.delayed(Duration(milliseconds: 300));
-  setState(() {}); // Rebuild after Firestore has synced
+  navigateWithNavBar(context, const NotificationsScreen(), initialIndex: 0);
 }
 
   @override
@@ -44,10 +29,9 @@ class HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text('Strive', style: TextStyle(color: Colors.white)),
+        title: const Text('Strive', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue[800],
         actions: [
-          
           if (currentUser != null)
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -97,20 +81,8 @@ class HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.blue[700],
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
-          BottomNavigationBarItem(icon: Icon(Icons.restaurant_menu), label: 'Nutrition'),
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Feed'),
-        ],
+      body: const Center(
+        child: Text("🏠 Home", style: TextStyle(fontSize: 22)),
       ),
     );
   }

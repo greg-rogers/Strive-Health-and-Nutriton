@@ -4,12 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_testing/main.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'login.dart';
 import 'followlist.dart';
+import 'package:flutter_testing/helpers/route_aware_mixin.dart';
+import '../helpers/navigation_helper.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -17,7 +18,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
+class _ProfileScreenState extends State<ProfileScreen> with RouteAwareMixin<ProfileScreen> {
   Map<DateTime, int> _activityMap = {}; 
   bool _isLoading = true;
   Map<String, dynamic> userData = {};
@@ -29,23 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (mounted) {
-      routeObserver.subscribe(this, ModalRoute.of(context)!);
-    }
-  }
-
-  @override
   void didPopNext() {
-    super.didPopNext();
-  }
-
-  @override
-  void dispose() {
-    routeObserver.unsubscribe(this);
-    super.dispose();
-  }
+    _fetchUserProfileAndWorkouts();
+    }
 
   Future<void> _fetchUserProfileAndWorkouts() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -78,15 +65,14 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   }
 
   Future<void> _openFollowList(String title, List<String> ids, bool allowRemove) async {
-    await Navigator.push(
+    await navigateWithNavBar(
       context,
-      MaterialPageRoute(
-        builder: (_) => FollowListScreen(
-          userIds: ids,
-          title: title,
-          allowRemove: allowRemove,
-        ),
+      FollowListScreen(
+        userIds: ids,
+        title: title,
+        allowRemove: allowRemove,
       ),
+      initialIndex: 3,
     );
     _fetchUserProfileAndWorkouts();
   }
@@ -261,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 ),
                 const SizedBox(height: 16),
                 Text("Username: ${userData['username'] ?? user.email}"),
-                Text("Email: ${user!.email}"),
+                Text("Email: ${user.email}"),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -312,9 +298,11 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 Center(
                   child: ElevatedButton.icon(
                     onPressed: () async {
+                      if (!mounted) return;
+                      final navigator = Navigator.of(context);
                       await FirebaseAuth.instance.signOut();
                       if (!mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
+                      navigator.pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => LoginScreen()),
                       (route) => false,
                     );

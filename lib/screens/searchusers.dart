@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'publicprofile.dart';
+import '../helpers/navigation_helper.dart';
 
 class SearchUsersScreen extends StatefulWidget {
   const SearchUsersScreen({super.key});
@@ -63,12 +64,11 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
                   ),
                   title: Text(username),
                   onTap: () {
-                    Navigator.push(
+                    navigateWithNavBar(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => PublicProfileScreen(userId: user.id),
-                      ),
-                    );
+                      PublicProfileScreen(userId: user.id),
+                      initialIndex: 3
+                      );
                   },
                 );
               },

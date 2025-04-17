@@ -1,15 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_testing/screens/publicprofile.dart';
 import 'firebase_options.dart';
-import 'screens/login.dart';
-import 'screens/signup.dart';
-import 'screens/home.dart';
-import 'screens/workout.dart';
-import 'screens/feed.dart';
-import 'screens/profile.dart';
-import 'screens/notifications.dart';
-import 'screens/searchusers.dart';
+import 'screens/screens.dart';
+import 'widgets/main_scaffold.dart';
 
 
 final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
@@ -35,12 +28,14 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => LoginScreen(),
         '/signup': (context) => SignUpScreen(),
-        '/home': (context) => HomeScreen(),
-        '/workout': (context) => WorkoutScreen(),
-        '/profile': (context) => ProfileScreen(),
-        '/feed': (context) => FeedScreen(),
-        '/notifications' : (context) => NotificationsScreen(),
-        '/search' : (context) => SearchUsersScreen(),
+        
+        '/home': (context) => const MainScaffold(initialIndex: 0),
+        '/workout': (context) => const MainScaffold(initialIndex: 1),
+        '/feed': (context) => const MainScaffold(initialIndex: 2),
+        '/profile': (context) => const MainScaffold(initialIndex: 3),
+
+        '/notifications': (context) => const NotificationsScreen(),
+        '/search': (context) => const SearchUsersScreen(),
         '/publicprofile': (context) {
           final userId = ModalRoute.of(context)!.settings.arguments as String;
           return PublicProfileScreen(userId: userId);

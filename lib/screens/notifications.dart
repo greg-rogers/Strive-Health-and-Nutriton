@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../helpers/route_aware_mixin.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -9,7 +10,7 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen> with RouteAwareMixin<NotificationsScreen> {
   bool _markedSeen = false;
 
   @override
@@ -19,6 +20,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _markAllAsSeen();
       _markedSeen = true;
     }
+  }
+  @override
+  void didPopNext() {
+    _markAllAsSeen();
   }
 
   Future<void> _markAllAsSeen() async {

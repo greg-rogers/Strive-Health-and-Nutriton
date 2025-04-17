@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_testing/helpers/route_aware_mixin.dart';
+import '../helpers/navigation_helper.dart';
+import 'searchusers.dart';
+
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -9,7 +13,7 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen> {
+class _FeedScreenState extends State<FeedScreen> with RouteAwareMixin<FeedScreen> {
   List<String> followingIds = [];
   bool isLoading = true;
 
@@ -18,6 +22,12 @@ class _FeedScreenState extends State<FeedScreen> {
     super.initState();
     _fetchFollowingAndBuildFeed();
   }
+
+  @override
+  void didPopNext() {
+    _fetchFollowingAndBuildFeed();
+  }
+
 
   Future<void> _fetchFollowingAndBuildFeed() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -83,7 +93,9 @@ class _FeedScreenState extends State<FeedScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () => Navigator.pushNamed(context, '/search'),
+            onPressed: () {
+              navigateWithNavBar(context, const SearchUsersScreen(), initialIndex: 3);
+            },
           ),
         ],
       ),

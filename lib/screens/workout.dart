@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'sessioneditor.dart';
+import '../helpers/navigation_helper.dart';
 
 
 class WorkoutScreen extends StatefulWidget {
@@ -107,14 +108,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _navigateToSessionEditor({String? sessionId}) async {
-    await Navigator.push(
+    await navigateWithNavBar(
       context,
-      MaterialPageRoute(
-        builder: (_) => SessionEditorScreen(
-          date: selectedDate,
-          sessionId: sessionId,
-        ),
+      SessionEditorScreen(
+        date: selectedDate,
+        sessionId: sessionId,
       ),
+      initialIndex: 1   
     );
     _fetchWorkoutSessions();
   }
