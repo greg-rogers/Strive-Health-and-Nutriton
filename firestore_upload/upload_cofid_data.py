@@ -19,17 +19,29 @@ columns_to_keep = [
 ]
 df = df[columns_to_keep].dropna(subset=["Food Name"])  # Filter out rows with no name
 
+df = df.drop_duplicates(subset=["Food Name"])
+
 # Upload to Firestore
 for index, row in df.iterrows():
+    food_name = row["Food Name"]
+    if pd.isna(food_name) or not str(food_name).strip():
+        continue 
+
+    food_name = str(row["Food Name"]).strip()
+    doc_id = food_name.lower().replace("/", "_").replace(" ", "_")[:100]
+    if not doc_id:
+        continue
+
     food_doc = {
         "name": row["Food Name"],
+        "name_lower": food_name.lower(),
         "calories": row["Energy (kcal) (kcal)"],
         "protein": row["Protein (g)"],
         "fat": row["Fat (g)"],
         "carbs": row["Carbohydrate (g)"],
-        "fibre": row["AOAC fibre (g)"]
+        "fibre": row["AOAC fibre (g)"] if pd.notna(row["AOAC fibre (g)"]) else None,
         
     }
-    db.collection("foods").add(food_doc)
+    db.collection("foods").document(doc_id).set(food_doc)
 
 print("Upload complete.")
