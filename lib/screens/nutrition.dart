@@ -8,6 +8,8 @@ import '../helpers/navigation_helper.dart';
 import '../widgets/food_details.dart';
 import 'nutrition_details.dart';
 import '../helpers/formatting_utils.dart';
+import '../services/goal_service.dart';
+import '../services/nutrition_service.dart';
 
 class NutritionScreen extends StatefulWidget {
   const NutritionScreen({super.key});
@@ -22,51 +24,6 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
   @override
   void didPopNext() {
     setState(() {}); 
-  }
-
-  Stream<Map<String, num>> _nutritionTotalsStream(String dateStr) async* {    
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) yield {};
-
-    final meals = ["Breakfast", "Lunch", "Dinner", "Extras"];
-    final firestore = FirebaseFirestore.instance;
-
-    yield* firestore
-        .collection("users")
-        .doc(user?.uid)
-        .collection("nutritionLogs")
-        .doc(dateStr)
-        .snapshots()
-        .asyncMap((_) async {
-          num totalCalories = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalFibre = 0;
-
-          for (String meal in meals) {
-            final snapshot = await firestore
-                .collection("users")
-                .doc(user?.uid)
-                .collection("nutritionLogs")
-                .doc(dateStr)
-                .collection(meal)
-                .get();
-
-            for (final doc in snapshot.docs) {
-              final data = doc.data();
-
-              totalCalories += parseNumber(data['calories']);
-              totalProtein  += parseNumber(data['protein']);
-              totalCarbs    += parseNumber(data['carbs']);
-              totalFat      += parseNumber(data['fat']);
-              totalFibre    += parseNumber(data['fibre']);
-            }
-          }
-          return {
-            "calories": totalCalories,
-            "protein": totalProtein,
-            "carbs": totalCarbs,
-            "fat": totalFat,
-            "fibre": totalFibre,
-          };
-    });
   }
 
   @override
@@ -112,7 +69,16 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
             onTap: () {
               navigateWithNavBar(context, const NutritionDetailsScreen(), initialIndex: 2);
             },
-            child: _buildCaloriesCard(),),
+           child: FutureBuilder(
+              future: _buildCaloriesCard(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return snapshot.data ?? const SizedBox.shrink();
+              },
+            ),
+          ),
           const SizedBox(height: 20),
           _buildMealSection(context, "Breakfast"),
           _buildMealSection(context, "Lunch"),
@@ -135,70 +101,62 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
     );
   }
 
-  Widget _buildCaloriesCard() {
+  Future<Widget> _buildCaloriesCard() async {
     final dateStr = getFirestoreDateKey(selectedDate);
-    final int calorieGoal = 2500;
+    final totals = await NutritionService.getDailyTotals(dateStr);
+    final calorieGoal = await GoalService.getGoal('calorieGoal') ?? 2500;
 
-    return StreamBuilder<Map<String, num>>(
-      stream: _nutritionTotalsStream(dateStr),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final caloriesConsumed = (totals["calories"] ?? 0).round();
+    final caloriesRemaining = calorieGoal - caloriesConsumed;
 
-        final totals = snapshot.data ?? {};
+    final protein = totals["protein"] ?? 0;
+    final carbs = totals["carbs"] ?? 0;
+    final fat = totals["fat"] ?? 0;
 
-        num getNum(dynamic val) {
-          if (val is num) return val;
-          if (val is String) return num.tryParse(val) ?? 0;
-          return 0;
-        }
+     final carbGoalPercent = await GoalService.getCarbGoal() ?? 50;
+    final proteinGoalPercent = await GoalService.getProteinGoal() ?? 30;
+    final fatGoalPercent = await GoalService.getFatGoal() ?? 20;
 
-        final caloriesConsumed = getNum(totals["calories"]).round();
-        final caloriesRemaining = calorieGoal - caloriesConsumed;
+    // Convert percentages into gram goals
+    final carbGoalGrams = (carbGoalPercent / 100 * calorieGoal) / 4;
+    final proteinGoalGrams = (proteinGoalPercent / 100 * calorieGoal) / 4;
+    final fatGoalGrams = (fatGoalPercent / 100 * calorieGoal) / 9;
 
-        final protein = getNum(totals["protein"]);
-        final carbs = getNum(totals["carbs"]);
-        final fat = getNum(totals["fat"]);
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text("Calories Remaining", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Text("Calories Remaining", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(height: 12),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _calorieCalcBlock(calorieGoal, "Goal"),
-                    const Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    _calorieCalcBlock(caloriesConsumed, "Intake"),
-                    const Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    _calorieCalcBlock(caloriesRemaining, "Remaining"),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-                const Text("Macros", style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                _buildMacroBar("Carbs", carbs),
-                _buildMacroBar("Fat", fat),
-                _buildMacroBar("Protein", protein),
+                _calorieCalcBlock(calorieGoal, "Goal"),
+                const Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                _calorieCalcBlock(caloriesConsumed, "Intake"),
+                const Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                _calorieCalcBlock(caloriesRemaining, "Remaining"),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 24),
+            const Text("Macros", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+           
+            _buildMacroBar("Carbs", carbs, carbGoalGrams),
+            _buildMacroBar("Fat", fat, fatGoalGrams),
+            _buildMacroBar("Protein", protein, proteinGoalGrams),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _calorieCalcBlock(int number, String label) {
+  Widget _calorieCalcBlock(num number, String label) {
     return Column(
       children: [
-        Text(number.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(formatNumber(number), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
@@ -206,8 +164,7 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
   }
 
 
-  Widget _buildMacroBar(String label, num value) {
-    final double maxVal = 400.0; 
+  Widget _buildMacroBar(String label, num value, num goal) {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -216,7 +173,7 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
           SizedBox(width: 60, child: Text(label)),
           Expanded(
             child: LinearProgressIndicator(
-              value: (value / maxVal).clamp(0.0, 1.0),
+              value: (value / goal).clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: Colors.grey.shade300,
             ),
@@ -227,8 +184,6 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
       ),
     );
   }
-
-
 
   Widget _buildMealSection(BuildContext context, String meal) {
     final user = FirebaseAuth.instance.currentUser;
@@ -277,14 +232,14 @@ class _NutritionScreenState extends State<NutritionScreen> with RouteAwareMixin<
                 children: [
                   ...docs.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final quantity = num.tryParse(data['quantity'].toString()) ?? 100;
-                    final calories = num.tryParse(data['calories'].toString())?.round() ?? 0;
+                    final quantity = parseNumber(data['quantity']);
+                    final calories = parseNumber(data['calories']);
 
                     return ListTile(
                       title: Text(data['name'] ?? 'Food'),
                       subtitle: Text("Serving size: ${formatNumber(quantity)}g"),
                       trailing: Text(
-                        "$calories kcal",
+                        "${formatNumber(calories, decimals: 0)} kcal",
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       onTap: () {

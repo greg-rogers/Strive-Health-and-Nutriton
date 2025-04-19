@@ -2,6 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+
+Future<void> _initializeDefaultGoals(String userId) async {
+  final goalRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .collection('goals')
+      .doc('main');
+
+  await goalRef.set({
+    'calorieGoal': 2500,
+    'waterGoal': 2000,
+    'sleepGoal': 8,
+    'proteinGoal' : 30,
+    'carbGoal' : 50,
+    'fatGoal' :20, 
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+}
+
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -59,6 +78,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'following': [],
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      //create default goals for collection
+      await _initializeDefaultGoals(userCredential.user!.uid);
+
 
       if (!mounted) return;
       

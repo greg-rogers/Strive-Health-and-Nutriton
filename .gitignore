@@ -46,3 +46,5 @@ app.*.map.json
 
 # Ignore Firebase service account credentials
 firestore_upload/ServiceAccountKey.json
+admin_scripts/ServiceAccountKey.json
+
