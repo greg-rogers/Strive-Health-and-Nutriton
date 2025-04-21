@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_testing/services/nutrition_service.dart';
 import '../helpers/route_aware_mixin.dart';
 import '../widgets/food_details.dart';
 import '../helpers/formatting_utils.dart';
@@ -80,6 +81,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with RouteAwareMixin<AddF
     foodData['date'] = Timestamp.fromDate(widget.selectedDate);
 
     await logRef.add(foodData);
+    await NutritionService.updateCalorieTotal(dateStr);
 
     await FirebaseFirestore.instance
         .collection('users')

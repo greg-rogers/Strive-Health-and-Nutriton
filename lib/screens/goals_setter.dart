@@ -17,11 +17,14 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
   final _carbPercentController = TextEditingController();
   final _proteinPercentController = TextEditingController();
   final _fatPercentController = TextEditingController();
+  final _singleGoalController = TextEditingController();
+
 
   double calorieGoal = 2500;
   double carbPercent = 50;
   double proteinPercent = 30;
   double fatPercent = 20;
+  double singleGoal = 0;
 
   bool _isLoading = true;
   final List<String> _editOrder = [];
@@ -33,12 +36,19 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
   }
 
   Future<void> _loadGoals() async {
-    calorieGoal = (await GoalService.getCalorieGoal())?.toDouble() ?? 2500;
-    carbPercent = (await GoalService.getCarbGoal())?.toDouble() ?? 50;
-    proteinPercent = (await GoalService.getProteinGoal())?.toDouble() ?? 30;
-    fatPercent = (await GoalService.getFatGoal())?.toDouble() ?? 20;
+    if (widget.goalType == 'calorieGoal') {
+      calorieGoal = (await GoalService.getCalorieGoal())?.toDouble() ?? 2500;
+      carbPercent = (await GoalService.getCarbGoal())?.toDouble() ?? 50;
+      proteinPercent = (await GoalService.getProteinGoal())?.toDouble() ?? 30;
+      fatPercent = (await GoalService.getFatGoal())?.toDouble() ?? 20;
+      _setMacroControllers();
+    } else if (widget.goalType == 'waterGoal') {
+      singleGoal = (await GoalService.getWaterGoal())?.toDouble() ?? 2000;
+    } else if (widget.goalType == 'sleepGoal') {
+      singleGoal = (await GoalService.getSleepGoal())?.toDouble() ?? 8;
+    }
 
-    _setMacroControllers();
+    _singleGoalController.text = formatNumber(singleGoal);
     setState(() => _isLoading = false);
   }
 
@@ -133,27 +143,37 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
   }
 
   Future<void> _handleSave() async {
-    final parsedCals = double.tryParse(_calorieController.text);
-    if (parsedCals == null || parsedCals <= 0) {
-      _showError("Please enter a valid calorie goal");
-      return;
-    }
+    if (widget.goalType == 'calorieGoal') {
+      final parsedCals = double.tryParse(_calorieController.text);
+      if (parsedCals == null || parsedCals <= 0) {
+        _showError("Please enter a valid calorie goal");
+        return;
+      }
 
-    final totalPercent = carbPercent + proteinPercent + fatPercent;
-    if ((totalPercent - 100).abs() > 0.1) {
-      _showError("Macro percentages must total 100%");
-      return;
-    }
+      final totalPercent = carbPercent + proteinPercent + fatPercent;
+      if ((totalPercent - 100).abs() > 0.1) {
+        _showError("Macro percentages must total 100%");
+        return;
+      }
 
-    await GoalService.setGoal('calorieGoal', calorieGoal);
-    await GoalService.setCarbGoal(carbPercent);
-    await GoalService.setProteinGoal(proteinPercent);
-    await GoalService.setFatGoal(fatPercent);
+      await GoalService.setGoal('calorieGoal', calorieGoal);
+      await GoalService.setCarbGoal(carbPercent);
+      await GoalService.setProteinGoal(proteinPercent);
+      await GoalService.setFatGoal(fatPercent);
+    } else if (widget.goalType == 'waterGoal') {
+      final parsed = double.tryParse(_singleGoalController.text);
+      if (parsed != null && parsed > 0) {
+        await GoalService.setWaterGoal(parsed);
+      }
+    } else if (widget.goalType == 'sleepGoal') {
+      final parsed = double.tryParse(_singleGoalController.text);
+      if (parsed != null && parsed > 0) {
+        await GoalService.setSleepGoal(parsed);
+      }
+    }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Goals updated")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Goal updated")));
       Navigator.pop(context);
     }
   }
@@ -168,21 +188,35 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
     _carbPercentController.dispose();
     _proteinPercentController.dispose();
     _fatPercentController.dispose();
+    _singleGoalController.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isCalorie = widget.goalType == 'calorieGoal';
+    final isWaterSleep = widget.goalType == 'waterGoal';
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Calorie & Macro Goals")),
+      appBar: AppBar(title: Text("Edit ${isCalorie ? "Calorie & Macro" : isWaterSleep ? "Water" : "Sleep"} Goal")),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildCard("Calorie Goal", "Calories (kcal)", _calorieController, "kcal"),
-                const SizedBox(height: 16),
-                _buildMacroTable(),
+                if (isCalorie) ...[
+                  _buildCard("Calorie Goal", "Calories (kcal)", _calorieController, "kcal"),
+                  const SizedBox(height: 16),
+                  _buildMacroTable(),
+                ] else ...[
+                  _buildCard(
+                    isWaterSleep ? "Water Goal" : "Sleep Goal",
+                    isWaterSleep ? "Water (ml)" : "Sleep (hrs)",
+                    _singleGoalController, 
+                    isWaterSleep ? "ml" : "hrs",
+                  ),
+                ],
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _handleSave,
@@ -216,7 +250,11 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
               final parsed = double.tryParse(val);
               if (parsed != null && parsed > 0) {
                 setState(() {
-                  calorieGoal = parsed;
+                  if (widget.goalType == 'calorieGoal') {
+                    calorieGoal = parsed;
+                  } else {
+                    singleGoal = parsed;
+                  }
                 });
               }
             },

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+
 class GoalRingWidget extends StatelessWidget {
   final String title;
   final String centreLabel;
   final double progress; // Value between 0 and 1
   final List<Map<String, String>> metrics;
+  final Map<String, Color>? metricColors;
   final VoidCallback onTap;
+
+
 
   const GoalRingWidget({
     super.key,
@@ -13,6 +17,7 @@ class GoalRingWidget extends StatelessWidget {
     required this.centreLabel,
     required this.progress,
     required this.metrics,
+    required this.metricColors,
     required this.onTap,
   });
 
@@ -138,11 +143,10 @@ class GoalRingWidget extends StatelessWidget {
                       ),
                       Text(
                         value,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
+                          color: metricColors?[label] ?? Colors.black87,                        ),
                       ),
                     ],
                   ),

@@ -4,22 +4,24 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_testing/helpers/navigation_helper.dart';
 import 'package:intl/intl.dart';
-import '../services/goal_service.dart';
 import '../widgets/goal_ring.dart';
 import 'goals_setter.dart';
-import '../services/nutrition_service.dart';
 import '../helpers/formatting_utils.dart';
+import '../helpers/goal_utils.dart';
 
 class NutritionDetailsScreen extends StatefulWidget {
-  const NutritionDetailsScreen({super.key});
+
+  final DateTime selectedDate;
+  const NutritionDetailsScreen({super.key, required this.selectedDate});
 
   @override
   State<NutritionDetailsScreen> createState() => _NutritionDetailsScreenState();
 }
 
 class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
-    with SingleTickerProviderStateMixin {
-  DateTime selectedDate = DateTime.now();
+with SingleTickerProviderStateMixin {
+
+  late DateTime selectedDate;
   late TabController _tabController;
 
   num calorieGoal = 2500;
@@ -31,6 +33,8 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
 
   Map<String, num> macroGoals = {};
   Map<String, num> macroTotals = {};
+  Map<String, num> macroGrams = {};
+
 
   final GlobalKey _chartKey = GlobalKey();
   OverlayEntry? _tooltipOverlay;
@@ -39,33 +43,30 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
   @override
   void initState() {
     super.initState();
+    selectedDate = widget.selectedDate;
     _tabController = TabController(length: 2, vsync: this);
     _loadGoals();
   }
 
   Future<void> _loadGoals() async {
-    final dateStr = getFirestoreDateKey(selectedDate);
-    final calorie = await GoalService.getCalorieGoal() ?? 2500;
-    final water = await GoalService.getWaterGoal() ?? 2000;
-    final sleep = await GoalService.getSleepGoal() ?? 8;
-    final carbGoal = await GoalService.getCarbGoal() ?? 50;
-    final proteinGoal = await GoalService.getProteinGoal() ?? 30;
-    final fatGoal = await GoalService.getFatGoal() ?? 20;
-    final totals = await NutritionService.getDailyTotals(dateStr);
+
+    final result = await fetchGoalsAndTotals(selectedDate);
+    final totals = result.totals;
 
     setState(() {
-      calorieGoal = calorie;
-      waterGoal = water;
-      sleepGoal = sleep;
+      calorieGoal = result.calorieGoal;
+      waterGoal = result.waterGoal;
+      sleepGoal = result.sleepGoal;
       calorieIntake = totals['calories'] ?? 0;
       waterIntake = totals['water'] ?? 0;
       sleepActual = totals['sleep'] ?? 0;
-      macroGoals = {'carbs': carbGoal, 'protein': proteinGoal, 'fat': fatGoal};
+      macroGoals = result.macroGoals;
       macroTotals = {
         'carbs': totals['carbs'] ?? 0,
         'protein': totals['protein'] ?? 0,
         'fat': totals['fat'] ?? 0,
       };
+      macroGrams = result.macroGrams;
       isLoading = false;
     });
   }
@@ -154,6 +155,9 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
               {"Goal": formatCalories(calorieGoal)},
               {"Intake": formatCalories(calorieIntake)},
             ],
+            metricColors: {
+              "Intake": getGoalStatus(type: "calories", intake: calorieIntake, goal: calorieGoal).color,
+            },
             onTap: () => _openGoalEditor('calorieGoal'),
           ),
           GoalRingWidget(
@@ -164,6 +168,9 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
               {"Goal": "${formatNumber(waterGoal)} ml"},
               {"Intake": "${formatNumber(waterIntake)} ml"},
             ],
+            metricColors: {
+              "Intake": getGoalStatus(type: "water", intake: waterIntake, goal: waterGoal).color,
+            },
             onTap: () => _openGoalEditor('waterGoal'),
           ),
           GoalRingWidget(
@@ -174,6 +181,9 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
               {"Goal": "${formatNumber(sleepGoal, decimals: 1)} h"},
               {"Slept": "${formatNumber(sleepActual, decimals: 1)} h"},
             ],
+            metricColors: {
+              "Intake": getGoalStatus(type: "sleep", intake: sleepActual, goal: sleepGoal).color,
+            },            
             onTap: () => _openGoalEditor('sleepGoal'),
           ),
         ],
@@ -182,27 +192,24 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
   }
 
   Widget _buildMacrosTab() {
-    final carbs = macroTotals['carbs']!.toDouble();
-    final protein = macroTotals['protein']!.toDouble();
-    final fat = macroTotals['fat']!.toDouble();
+    final macroLabels = ["Carbs", "Protein", "Fat"];
 
-    final carbGoalPercent = macroGoals['carbs']!.toDouble();
-    final proteinGoalPercent = macroGoals['protein']!.toDouble();
-    final fatGoalPercent = macroGoals['fat']!.toDouble();
+    final macroValues = macroLabels.map((label) {
+      return macroTotals[label.toLowerCase()]?.toDouble() ?? 0.0;
+    }).toList();
 
-    final totalCals = (carbs * 4) + (protein * 4) + (fat * 9);
-    final macroCals = [carbs * 4, protein * 4, fat * 9];
+    final macroGoalPercents = macroLabels.map((label) {
+      return macroGoals[label.toLowerCase()]?.toDouble() ?? 0.0;
+    }).toList();
+
+    final macroGoalGrams = macroLabels.map((label) {
+      return macroGrams[label.toLowerCase()]?.toDouble() ?? 0.0;
+    }).toList();
+    final totalCals = (macroValues[0] * 4 + macroValues[1] * 4 + macroValues[2] * 9).clamp(1, double.infinity);
+    final macroCals = [macroValues[0] * 4, macroValues[1] * 4, macroValues[2] * 9];
     final macroPercents = macroCals.map((c) => (c / totalCals).clamp(0.0, 1.0)).toList();
 
-    final macroLabels = ["Carbs", "Protein", "Fat"];
     final macroColors = [Colors.yellow[700]!, Colors.teal[400]!, Colors.red[300]!];
-    final macroValues = [carbs, protein, fat];
-    final macroGoalsGrams = [
-      (carbGoalPercent / 100 * calorieGoal) / 4,
-      (proteinGoalPercent / 100 * calorieGoal) / 4,
-      (fatGoalPercent / 100 * calorieGoal) / 9
-    ];
-    final macroGoalPercents = [carbGoalPercent, proteinGoalPercent, fatGoalPercent];
 
     return GestureDetector(
       onTapDown: (_) => _removeTooltip(),
@@ -257,7 +264,14 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
               children: List.generate(3, (i) => _buildLegendItem(macroColors[i], macroLabels[i])),
             ),
             const SizedBox(height: 24),
-            ...List.generate(3, (i) => _macroTile(macroLabels[i], macroValues[i], macroPercents[i], macroGoalPercents[i], macroGoalsGrams[i], macroColors[i])),
+            ...List.generate(3, (i) => _macroTile(
+              macroLabels[i],
+              macroValues[i],
+              macroPercents[i],
+              macroGoalPercents[i],
+              macroGoalGrams[i],
+              macroColors[i],
+            )),
           ],
         ),
       ),
@@ -291,7 +305,18 @@ class _NutritionDetailsScreenState extends State<NutritionDetailsScreen>
             const SizedBox(height: 6),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Consumed", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text("${(percent * 100).toStringAsFixed(1)}% (${formatNumber(grams)}g)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: getConsumedColor(percent, goalPercent))),
+              Text(
+                "${(percent * 100).toStringAsFixed(1)}% (${formatNumber(grams)}g)",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: getGoalStatus(
+                    intake: grams,
+                    goal: goalGrams,
+                    type: label.toLowerCase(),
+                  ).color,
+                ),
+              ),            
             ]),
             const SizedBox(height: 4),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

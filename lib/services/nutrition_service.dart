@@ -59,4 +59,90 @@ class NutritionService {
     });
   }
 
+  static Future<void> logDailyMetric({
+    required String dateStr,
+    required String field,
+    required num value,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final ref = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('nutritionLogs')
+        .doc(dateStr);
+
+    await ref.set({field: value}, SetOptions(merge: true));
+  }
+
+  static Future<Map<String, Map<String, num>>> getSummaryInRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null) return {};
+    final uid = user.uid;
+
+    final summaries = <String, Map<String, num>>{};
+
+    final dates = List.generate(
+      end.difference(start).inDays + 1,
+      (i) => start.add(Duration(days: i)),
+    );
+    final dateKeys = dates.map(getFirestoreDateKey).toList();
+
+    // Split into batches of 10 (limit of 10 for `whereIn` with documentId)
+    final batches = <List<String>>[];
+    for (var i = 0; i < dateKeys.length; i += 10) {
+      batches.add(dateKeys.sublist(i, i + 10 > dateKeys.length ? dateKeys.length : i + 10));
+    }
+
+    for (final batch in batches) {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('nutritionLogs')
+          .where(FieldPath.documentId, whereIn: batch)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        summaries[doc.id] = {
+          "calories": parseNumber(data['calories']),
+          "water": parseNumber(data['water']),
+          "sleep": parseNumber(data['sleep']),
+        };
+      }
+    }
+
+    return summaries;
+  }
+
+  static Future<void> updateCalorieTotal(String dateStr) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final uid = user.uid;
+
+    num totalCalories = 0;
+    for (final meal in _meals) {
+      final snapshot = await _firestore
+          .collection("users")
+          .doc(uid)
+          .collection("nutritionLogs")
+          .doc(dateStr)
+          .collection(meal)
+          .get();
+
+      totalCalories += _sumField(snapshot.docs, 'calories');
+    }
+
+    await _firestore
+        .collection("users")
+        .doc(uid)
+        .collection("nutritionLogs")
+        .doc(dateStr)
+        .set({"calories": totalCalories}, SetOptions(merge: true));
+  }
+
 }

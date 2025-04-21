@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_testing/services/nutrition_service.dart';
 import '../helpers/formatting_utils.dart';
 import 'macro_summary.dart';
 
@@ -115,7 +116,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
 
                 if (!widget.isEditMode || widget.docId == null || widget.mealType == null) {
                   widget.onAdd?.call(adjusted);
-                } else {
+                  await NutritionService.updateCalorieTotal(dateStr);
+                } 
+                else {
                   await FirebaseFirestore.instance
                       .collection('users')
                       .doc(user!.uid)
@@ -131,6 +134,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                       .collection("nutritionLogs")
                       .doc(dateStr)
                       .set({"lastUpdated": FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+                  await NutritionService.updateCalorieTotal(dateStr);
+
                 }
 
                 if (!mounted) return;
