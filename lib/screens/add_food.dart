@@ -7,6 +7,7 @@ import '../widgets/food_details.dart';
 import '../helpers/formatting_utils.dart';
 import 'dart:async';
 import '../widgets/macro_summary.dart';
+import '../services/streak_service.dart';
 
 class AddFoodScreen extends StatefulWidget {
   final String mealType;
@@ -84,12 +85,13 @@ class _AddFoodScreenState extends State<AddFoodScreen> with RouteAwareMixin<AddF
     await NutritionService.updateCalorieTotal(dateStr);
 
     await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('nutritionLogs')
-        .doc(dateStr)
-        .set({"lastUpdated": FieldValue.serverTimestamp()}, SetOptions(merge: true));
-
+    .collection('users')
+    .doc(user.uid)
+    .collection('nutritionLogs')
+    .doc(dateStr)
+    .set({"lastUpdated": FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      
+    await StreakService.incrementNutritionStreak(widget.selectedDate);
     if (mounted) Navigator.pop(context);
   }
 

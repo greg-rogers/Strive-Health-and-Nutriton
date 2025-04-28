@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'sessioneditor.dart';
 import '../helpers/navigation_helper.dart';
+import '../helpers/formatting_utils.dart';
 
 
 class WorkoutScreen extends StatefulWidget {
@@ -157,7 +158,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       final session = workoutSessions[index];
                       return ListTile(
                         title: Text(session['name']),
-                        subtitle: Text("Duration: ${session['duration']}"),
+                        subtitle: Text("Duration: ${formatNumber(session['duration'])} minutes"),
                         trailing: Icon(Icons.chevron_right),
                         onTap: () => _navigateToSessionEditor(sessionId: session['id']),
                       );
@@ -171,11 +172,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
       ),
       floatingActionButton: isWeekView
-        ? null
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      ? null
+      : Padding(
+          padding: const EdgeInsets.only(bottom: 12), // Adds separation
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              SizedBox(width: 16), 
               FloatingActionButton.extended(
                 heroTag: "publish",
                 onPressed: () async {
@@ -201,48 +203,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Workout published!")),
                     );
-                    if (confirmed == true) {
-                      final user = FirebaseAuth.instance.currentUser;
-                      if (user == null) return;
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
 
-                      final userId = user.uid;
+                    final userId = user.uid;
+                    final sessionsSnap = await FirebaseFirestore.instance
+                        .collection('workouts')
+                        .doc(userId)
+                        .collection('sessions')
+                        .where('date', isEqualTo: DateFormat('yyyy-MM-dd').format(selectedDate))
+                        .get();
 
-                      // Get sessions for selected day
-                      final sessionsSnap = await FirebaseFirestore.instance
-                          .collection('workouts')
-                          .doc(userId)
-                          .collection('sessions')
-                          .where('date', isEqualTo: DateFormat('yyyy-MM-dd').format(selectedDate))
-                          .get();
+                    for (var sessionDoc in sessionsSnap.docs) {
+                      final sessionData = sessionDoc.data();
+                      final exercisesSnap = await sessionDoc.reference.collection('exercises').get();
+                      final exercises = exercisesSnap.docs.map((e) => e.data()).toList();
 
-                      for (var sessionDoc in sessionsSnap.docs) {
-                        final sessionData = sessionDoc.data();
-
-                        // Fetch exercises for this session
-                        final exercisesSnap = await sessionDoc.reference.collection('exercises').get();
-                        final exercises = exercisesSnap.docs.map((e) => e.data()).toList();
-
-                        // Add to global feed
-                        await FirebaseFirestore.instance.collection('feed').add({
-                          'userId': user.uid,
-                          'sessionName': sessionData['name'],
-                          'duration': sessionData['duration'],
-                          'date': sessionData['date'],
-                          'exercises': exercises,
-                          'publishedAt': FieldValue.serverTimestamp(),
-
-                        });
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Workout published to feed ✅")),
-                      );
+                      await FirebaseFirestore.instance.collection('feed').add({
+                        'userId': user.uid,
+                        'sessionName': sessionData['name'],
+                        'duration': sessionData['duration'],
+                        'date': sessionData['date'],
+                        'exercises': exercises,
+                        'publishedAt': FieldValue.serverTimestamp(),
+                      });
                     }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Workout published to feed ✅")),
+                    );
                   }
                 },
-
-                icon: Icon(Icons.public),
-                label: Text("Publish Day"),
-                backgroundColor: const Color.fromARGB(158, 44, 222, 5),
+                icon: Icon(Icons.group), // Changed icon to people/friends looking one
+                label: Text("Post to Feed"),
+                backgroundColor: Colors.blue, // Same blue as add workout
               ),
               FloatingActionButton(
                 heroTag: "addSession",
@@ -251,8 +244,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: Icon(Icons.add),
               ),
             ],
-          ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        ),
+        ),
+    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
     );
   }
 }

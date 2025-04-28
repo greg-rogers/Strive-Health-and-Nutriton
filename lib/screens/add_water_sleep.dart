@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../helpers/formatting_utils.dart';
 import '../services/nutrition_service.dart';
+import '../services/streak_service.dart';
+
 
 class WaterSleepLoggerScreen extends StatefulWidget {
   final String type; // "water" or "sleep"
@@ -73,6 +75,8 @@ class _WaterSleepLoggerScreenState extends State<WaterSleepLoggerScreen> {
       field: widget.type,
       value: value,
     );
+    
+    await StreakService.incrementNutritionStreak(widget.selectedDate);
     if (mounted) Navigator.pop(context);
   }
 

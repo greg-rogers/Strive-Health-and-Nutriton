@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
+import '../services/streak_service.dart';
+
 
 class SessionEditorScreen extends StatefulWidget {
   final DateTime date;
@@ -21,6 +23,8 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
   final TextEditingController exerciseController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
   final TextEditingController repsController = TextEditingController();
+  final setsController = TextEditingController();
+  int sets = 1;
 
   List<Map<String, String>> exercises = [];
   bool isLoading = false;
@@ -28,6 +32,7 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
   @override
   void initState() {
     super.initState();
+    setsController.text = sets.toString();
     if (widget.sessionId != null) _loadSessionData();
   }
 
@@ -64,6 +69,7 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
                 'exercise': e['exercise'].toString(),
                 'weight': e['weight'].toString(),
                 'reps': e['reps'].toString(),
+                'sets': e['sets']?.toString() ?? '1',
               }).toList();
           isLoading = false;
         });
@@ -78,17 +84,20 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
   void _addExercise() {
     if (exerciseController.text.isNotEmpty &&
         weightController.text.isNotEmpty &&
-        repsController.text.isNotEmpty) {
+        repsController.text.isNotEmpty &&
+        setsController.text.isNotEmpty) {
       setState(() {
         exercises.add({
           'exercise': exerciseController.text,
           'weight': weightController.text,
           'reps': repsController.text,
+          'sets': setsController.text,
         });
       });
       exerciseController.clear();
       weightController.clear();
       repsController.clear();
+       setsController.text = '1';
     }
   }
 
@@ -128,6 +137,8 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
     for (final exercise in exercises) {
       await exercisesRef.add(exercise);
     }
+    await StreakService.incrementWorkoutStreak(widget.date);
+
 
     if (mounted) {
       Navigator.pop(context);
@@ -176,6 +187,41 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
                       controller: repsController,
                       decoration: InputDecoration(labelText: 'Reps'),
                     ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: () {
+                            final current = int.tryParse(setsController.text) ?? 1;
+                            final updated = (current - 1).clamp(1, 99);
+                            setsController.text = updated.toString();
+                          },
+                        ),
+                        SizedBox(
+                          width: 60,
+                          child: TextField(
+                            controller: setsController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            decoration: const InputDecoration(
+                              labelText: 'Sets',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () {
+                            final current = int.tryParse(setsController.text) ?? 1;
+                            final updated = (current + 1).clamp(1, 99);
+                            setsController.text = updated.toString();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: _addExercise,
                       child: Text("Add Exercise"),
@@ -184,6 +230,7 @@ class _SessionEditorScreenState extends State<SessionEditorScreen> {
                     Text("Exercises:"),
                     ...exercises.map((e) => ListTile(
                           title: Text("${e['exercise']} - ${e['weight']}kg x ${e['reps']} reps"),
+                          subtitle: Text("${e['sets']} sets"),
                         )),
                   ],
                 ),

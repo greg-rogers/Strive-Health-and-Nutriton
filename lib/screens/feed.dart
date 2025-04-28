@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_testing/helpers/formatting_utils.dart';
 import 'package:flutter_testing/helpers/route_aware_mixin.dart';
 import '../helpers/navigation_helper.dart';
 import 'searchusers.dart';
@@ -150,7 +151,7 @@ class _FeedScreenState extends State<FeedScreen> with RouteAwareMixin<FeedScreen
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text("${data['sessionName']} • ${data['duration']} hrs"),
+                          Text("${data['sessionName']} • ${formatNumber(data['duration'])} minutes"),
                           Text(data['date'] ?? "",
                               style: TextStyle(color: Colors.grey[600])),
                           const Divider(),
